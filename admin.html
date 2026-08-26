@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>관리자 - 2027학년도 교과과정개편 연수</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <h1>2027학년도 교과과정개편 연수 신청</h1>
+  <p>학교법인 한국폴리텍대학 AI혁신부</p>
+</header>
+<nav class="menu">
+  <a href="index.html">홈</a>
+  <a href="apply-staff.html">신규신청(학사담당)</a>
+  <a href="apply-dept.html">신규신청(학과장)</a>
+  <a href="edit-dept.html">변경하기(학과장)</a>
+  <a href="admin.html" class="active">관리자</a>
+</nav>
+<main>
+
+<div class="card" id="loginCard">
+  <h2>관리자 로그인</h2>
+  <div class="field">
+    <label>비밀번호</label>
+    <input type="password" id="pwInput" placeholder="초기 비밀번호: 000000">
+  </div>
+  <button id="loginBtn">로그인</button>
+  <div id="loginMsg" class="msg"></div>
+</div>
+
+<div id="adminPanel" style="display:none;">
+
+  <div class="card">
+    <h2>신청 기간 설정</h2>
+    <div class="grid2">
+      <div class="field">
+        <label>신청 시작일</label>
+        <input type="date" id="applyStart">
+      </div>
+      <div class="field">
+        <label>신청 종료일</label>
+        <input type="date" id="applyEnd">
+      </div>
+    </div>
+    <button id="savePeriodBtn">저장</button>
+    <div id="periodSaveMsg" class="msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>회차별 설정 (1~10차)</h2>
+    <p class="small">사용할 회차만 '사용' 체크 후 장소/기간/최대인원을 입력하세요.</p>
+    <table id="roundTable">
+      <thead>
+        <tr><th>사용</th><th>차수</th><th>연수장소</th><th>기간</th><th>최대인원</th><th>현재신청</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <button id="saveRoundsBtn" style="margin-top:14px;">회차 설정 저장</button>
+    <div id="roundSaveMsg" class="msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>비밀번호 변경</h2>
+    <div class="grid2">
+      <div class="field">
+        <label>새 비밀번호</label>
+        <input type="password" id="newPw">
+      </div>
+      <div class="field">
+        <label>새 비밀번호 확인</label>
+        <input type="password" id="newPw2">
+      </div>
+    </div>
+    <button id="changePwBtn">비밀번호 변경</button>
+    <div id="pwMsg" class="msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>신청자 명단</h2>
+    <div class="tabs">
+      <button class="active" data-tab="dept">학과장 신청자</button>
+      <button data-tab="staff">학사담당 신청자</button>
+    </div>
+    <div id="listArea"></div>
+    <button id="downloadBtn" style="margin-top:14px;">엑셀 다운로드</button>
+  </div>
+
+</div>
+</main>
+
+<script type="module">
+import { db, doc, getDoc, setDoc, collection, getDocs } from "./js/firebase-init.js";
+import { getSettings, getRoundCount } from "./js/utils.js";
+
+const loginCard = document.getElementById("loginCard");
+const adminPanel = document.getElementById("adminPanel");
+const loginMsg = document.getElementById("loginMsg");
+let settings = null;
+
+document.getElementById("loginBtn").addEventListener("click", async () => {
+  const pw = document.getElementById("pwInput").value;
+  settings = await getSettings();
+  const correctPw = settings.adminPassword || "000000";
+  if (pw === correctPw) {
+    loginCard.style.display = "none";
+    adminPanel.style.display = "block";
+    initAdmin();
+  } else {
+    loginMsg.textContent = "비밀번호가 올바르지 않습니다.";
+    loginMsg.className = "msg show err";
+  }
+});
+
+async function initAdmin() {
+  document.getElementById("applyStart").value = settings.applyStart || "";
+  document.getElementById("applyEnd").value = settings.applyEnd || "";
+
+  document.getElementById("savePeriodBtn").addEventListener("click", async () => {
+    const start = document.getElementById("applyStart").value;
+    const end = document.getElementById("applyEnd").value;
+    await setDoc(doc(db, "settings", "main"), { ...settings, applyStart: start, applyEnd: end }, { merge: true });
+    settings.applyStart = start; settings.applyEnd = end;
+    const m = document.getElementById("periodSaveMsg");
+    m.textContent = "저장되었습니다."; m.className = "msg show ok";
+  });
+
+  document.getElementById("changePwBtn").addEventListener("click", async () => {
+    const p1 = document.getElementById("newPw").value;
+    const p2 = document.getElementById("newPw2").value;
+    const m = document.getElementById("pwMsg");
+    if (!p1 || p1.length < 4) { m.textContent = "4자리 이상 입력해 주세요."; m.className = "msg show err"; return; }
+    if (p1 !== p2) { m.textContent = "비밀번호가 일치하지 않습니다."; m.className = "msg show err"; return; }
+    await setDoc(doc(db, "settings", "main"), { ...settings, adminPassword: p1 }, { merge: true });
+    settings.adminPassword = p1;
+    m.textContent = "비밀번호가 변경되었습니다."; m.className = "msg show ok";
+    document.getElementById("newPw").value = ""; document.getElementById("newPw2").value = "";
+  });
+
+  await renderRoundTable();
+  document.getElementById("saveRoundsBtn").addEventListener("click", saveRounds);
+
+  await renderList("dept");
+  document.querySelectorAll(".tabs button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tabs button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      renderList(btn.dataset.tab);
+    });
+  });
+  document.getElementById("downloadBtn").addEventListener("click", downloadExcel);
+}
+
+async function renderRoundTable() {
+  const tbody = document.querySelector("#roundTable tbody");
+  tbody.innerHTML = "";
+  for (let i = 1; i <= 10; i++) {
+    const snap = await getDoc(doc(db, "rounds", String(i)));
+    const d = snap.exists() ? snap.data() : { enabled: false, location: "", period: "", maxCount: "" };
+    const count = await getRoundCount(i);
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><input type="checkbox" data-field="enabled" data-round="${i}" ${d.enabled ? "checked" : ""}></td>
+      <td>${i}차</td>
+      <td><input type="text" data-field="location" data-round="${i}" value="${d.location || ""}" placeholder="장소"></td>
+      <td><input type="text" data-field="period" data-round="${i}" value="${d.period || ""}" placeholder="예) 2027.1.5~1.6"></td>
+      <td><input type="number" data-field="maxCount" data-round="${i}" value="${d.maxCount || ""}" min="0" style="width:80px;"></td>
+      <td>${count}명</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+async function saveRounds() {
+  for (let i = 1; i <= 10; i++) {
+    const enabled = document.querySelector(`input[data-field="enabled"][data-round="${i}"]`).checked;
+    const location = document.querySelector(`input[data-field="location"][data-round="${i}"]`).value.trim();
+    const period = document.querySelector(`input[data-field="period"][data-round="${i}"]`).value.trim();
+    const maxCountRaw = document.querySelector(`input[data-field="maxCount"][data-round="${i}"]`).value;
+    const maxCount = maxCountRaw ? parseInt(maxCountRaw, 10) : 0;
+    await setDoc(doc(db, "rounds", String(i)), { enabled, location, period, maxCount });
+  }
+  const m = document.getElementById("roundSaveMsg");
+  m.textContent = "회차 설정이 저장되었습니다."; m.className = "msg show ok";
+  await renderRoundTable();
+}
+
+let currentListData = [];
+let currentListType = "dept";
+
+async function renderList(type) {
+  currentListType = type;
+  const listArea = document.getElementById("listArea");
+  listArea.innerHTML = "불러오는 중...";
+  const colName = type === "dept" ? "deptApplications" : "staffApplications";
+  const snap = await getDocs(collection(db, colName));
+  const rows = [];
+  snap.forEach(d => rows.push(d.data()));
+  currentListData = rows;
+
+  if (rows.length === 0) {
+    listArea.innerHTML = '<p class="small">등록된 신청자가 없습니다.</p>';
+    return;
+  }
+
+  let html = "<table><thead><tr>";
+  if (type === "dept") {
+    html += "<th>전화번호</th><th>대학</th><th>캠퍼스</th><th>교과편성과정</th><th>직급</th><th>이름</th><th>학과장</th><th>참석차수</th><th>숙박</th>";
+  } else {
+    html += "<th>대학</th><th>캠퍼스</th><th>담당과정</th><th>직급</th><th>이름</th>";
+  }
+  html += "</tr></thead><tbody>";
+  rows.forEach(r => {
+    if (type === "dept") {
+      html += `<tr><td>${r.phone||""}</td><td>${r.university||""}</td><td>${r.campus||""}</td><td>${(r.courses||[]).join(", ")}</td><td>${r.position||""}</td><td>${r.name||""}</td><td>${r.isHead==="Y"?"O":"X"}</td><td>${r.round||""}차</td><td>${r.stay==="Y"?"O":"X"}</td></tr>`;
+    } else {
+      html += `<tr><td>${r.university||""}</td><td>${r.campus||""}</td><td>${(r.courses||[]).join(", ")}</td><td>${r.position||""}</td><td>${r.name||""}</td></tr>`;
+    }
+  });
+  html += "</tbody></table>";
+  listArea.innerHTML = html;
+}
+
+function downloadExcel() {
+  if (currentListData.length === 0) { alert("다운로드할 데이터가 없습니다."); return; }
+  let rows;
+  if (currentListType === "dept") {
+    rows = currentListData.map(r => ({
+      전화번호: r.phone || "", 대학: r.university || "", 캠퍼스: r.campus || "",
+      교과편성과정: (r.courses || []).join(", "), 직급: r.position || "", 이름: r.name || "",
+      학과장여부: r.isHead === "Y" ? "O" : "X", 참석차수: r.round ? r.round + "차" : "", 숙박여부: r.stay === "Y" ? "O" : "X"
+    }));
+  } else {
+    rows = currentListData.map(r => ({
+      대학: r.university || "", 캠퍼스: r.campus || "", 담당과정: (r.courses || []).join(", "),
+      직급: r.position || "", 이름: r.name || ""
+    }));
+  }
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, currentListType === "dept" ? "학과장신청자" : "학사담당신청자");
+  XLSX.writeFile(wb, `연수신청자명단_${currentListType}_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>변경하기(학과장) - 2027학년도 교과과정개편 연수</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <h1>2027학년도 교과과정개편 연수 신청</h1>
+  <p>학교법인 한국폴리텍대학 AI혁신부</p>
+</header>
+<nav class="menu">
+  <a href="index.html">홈</a>
+  <a href="apply-staff.html">신규신청(학사담당)</a>
+  <a href="apply-dept.html">신규신청(학과장)</a>
+  <a href="edit-dept.html" class="active">변경하기(학과장)</a>
+  <a href="admin.html">관리자</a>
+</nav>
+<main>
+  <div class="card">
+    <h2>변경하기 (학과장)</h2>
+    <p class="small">신규 등록한 전화번호로만 조회 및 변경할 수 있습니다.</p>
+    <div class="field">
+      <label>전화번호 *</label>
+      <div style="display:flex;gap:8px;">
+        <input type="tel" id="phone" placeholder="예) 01012345678">
+        <button type="button" id="searchBtn" style="white-space:nowrap;">조회</button>
+      </div>
+    </div>
+    <div id="notFoundMsg" class="msg"></div>
+  </div>
+
+  <div class="card" id="editCard" style="display:none;">
+    <h2>신청 정보 변경</h2>
+    <form id="editForm">
+      <div class="grid2">
+        <div class="field">
+          <label>대학 *</label>
+          <select id="university" required></select>
+        </div>
+        <div class="field">
+          <label>캠퍼스 *</label>
+          <select id="campus" required></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>교과편성 과정 * (복수선택 가능)</label>
+        <div class="checkbox-group" id="courseGroup"></div>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label>직급 *</label>
+          <input type="text" id="position" required>
+        </div>
+        <div class="field">
+          <label>이름 *</label>
+          <input type="text" id="name" required>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label>학과장 여부 *</label>
+          <div class="checkbox-group">
+            <label><input type="radio" name="isHead" value="Y"> 학과장임</label>
+            <label><input type="radio" name="isHead" value="N"> 학과장 아님</label>
+          </div>
+        </div>
+        <div class="field">
+          <label>숙박 여부 *</label>
+          <div class="checkbox-group">
+            <label><input type="radio" name="stay" value="Y"> 숙박함</label>
+            <label><input type="radio" name="stay" value="N"> 숙박 안함</label>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label>참석 차수 * (현재: <span id="currentRound"></span>)</label>
+        <div class="radio-cards" id="roundList"></div>
+      </div>
+      <button type="submit" id="saveBtn">변경 완료</button>
+      <div id="msg" class="msg"></div>
+    </form>
+  </div>
+</main>
+
+<script src="js/campus-data.js"></script>
+<script type="module">
+import { db, doc, getDoc, updateDoc, serverTimestamp } from "./js/firebase-init.js";
+import { getRounds, getRoundCount, formatPhone } from "./js/utils.js";
+
+const notFoundMsg = document.getElementById("notFoundMsg");
+const editCard = document.getElementById("editCard");
+const msg = document.getElementById("msg");
+const uniSelect = document.getElementById("university");
+const campSelect = document.getElementById("campus");
+const courseGroup = document.getElementById("courseGroup");
+const roundList = document.getElementById("roundList");
+const currentRoundSpan = document.getElementById("currentRound");
+
+let currentPhone = null;
+let currentData = null;
+let roundsCache = [];
+
+function showMsg(el, text, ok) {
+  el.textContent = text;
+  el.className = "msg show " + (ok ? "ok" : "err");
+}
+
+Object.keys(CAMPUS_DATA).forEach(u => {
+  const opt = document.createElement("option");
+  opt.value = u; opt.textContent = u + "대학";
+  uniSelect.appendChild(opt);
+});
+
+Object.entries(COURSE_OPTIONS).forEach(([group, items]) => {
+  const title = document.createElement("div");
+  title.className = "group-title";
+  title.textContent = group;
+  courseGroup.appendChild(title);
+  items.forEach(c => {
+    const label = document.createElement("label");
+    label.innerHTML = `<input type="checkbox" name="course" value="${c}"> ${c}`;
+    courseGroup.appendChild(label);
+  });
+});
+
+function fillCampus(u, selected) {
+  campSelect.innerHTML = "";
+  (CAMPUS_DATA[u] || []).forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = c; opt.textContent = c;
+    if (c === selected) opt.selected = true;
+    campSelect.appendChild(opt);
+  });
+}
+uniSelect.addEventListener("change", () => fillCampus(uniSelect.value, null));
+
+document.getElementById("searchBtn").addEventListener("click", async () => {
+  const phone = formatPhone(document.getElementById("phone").value.trim());
+  if (!phone) { showMsg(notFoundMsg, "전화번호를 입력해 주세요.", false); return; }
+  const snap = await getDoc(doc(db, "deptApplications", phone));
+  if (!snap.exists()) {
+    showMsg(notFoundMsg, "신규 등록된 신청 정보가 없습니다. (신규신청 후에만 변경 가능)", false);
+    editCard.style.display = "none";
+    return;
+  }
+  currentPhone = phone;
+  currentData = snap.data();
+  notFoundMsg.className = "msg";
+  editCard.style.display = "block";
+
+  uniSelect.value = currentData.university;
+  fillCampus(currentData.university, currentData.campus);
+  document.querySelectorAll('input[name="course"]').forEach(el => {
+    el.checked = (currentData.courses || []).includes(el.value);
+  });
+  document.getElementById("position").value = currentData.position || "";
+  document.getElementById("name").value = currentData.name || "";
+  const headEl = document.querySelector(`input[name="isHead"][value="${currentData.isHead}"]`);
+  if (headEl) headEl.checked = true;
+  const stayEl = document.querySelector(`input[name="stay"][value="${currentData.stay}"]`);
+  if (stayEl) stayEl.checked = true;
+  currentRoundSpan.textContent = currentData.round ? currentData.round + "차" : "미지정";
+
+  roundsCache = await getRounds();
+  roundList.innerHTML = "";
+  for (const r of roundsCache) {
+    const count = await getRoundCount(r.id, currentPhone); // 본인 제외 카운트
+    const isFull = r.maxCount && count >= r.maxCount;
+    const label = document.createElement("label");
+    label.className = isFull ? "full" : "";
+    label.innerHTML = `
+      <span>
+        <input type="radio" name="round" value="${r.id}" ${isFull ? "disabled" : ""} ${r.id === currentData.round ? "checked" : ""}>
+        <b>${r.id}차</b> · ${r.location || "장소 미정"} · ${r.period || "기간 미정"}
+      </span>
+      <span class="tag ${isFull ? "full" : ""}">${count} / ${r.maxCount || "제한없음"}${isFull ? " 마감" : ""}</span>
+    `;
+    roundList.appendChild(label);
+  }
+});
+
+document.getElementById("editForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!currentPhone) return;
+  const courses = Array.from(document.querySelectorAll('input[name="course"]:checked')).map(el => el.value);
+  if (courses.length === 0) { showMsg(msg, "교과편성 과정을 1개 이상 선택해 주세요.", false); return; }
+  const isHeadEl = document.querySelector('input[name="isHead"]:checked');
+  const stayEl = document.querySelector('input[name="stay"]:checked');
+  const roundEl = document.querySelector('input[name="round"]:checked');
+  if (!isHeadEl || !stayEl || !roundEl) { showMsg(msg, "모든 필수 항목을 선택해 주세요.", false); return; }
+  const round = parseInt(roundEl.value, 10);
+
+  const saveBtn = document.getElementById("saveBtn");
+  saveBtn.disabled = true;
+  try {
+    // 변경한 회차의 정원 초과 여부 재확인 (본인 제외 카운트)
+    const roundInfo = roundsCache.find(r => r.id === round);
+    const count = await getRoundCount(round, currentPhone);
+    if (roundInfo && roundInfo.maxCount && count >= roundInfo.maxCount) {
+      showMsg(msg, "선택하신 회차는 신청가능인원을 초과하여 변경신청을 완료할 수 없습니다.", false);
+      saveBtn.disabled = false;
+      return;
+    }
+
+    await updateDoc(doc(db, "deptApplications", currentPhone), {
+      university: uniSelect.value,
+      campus: campSelect.value,
+      courses,
+      position: document.getElementById("position").value.trim(),
+      name: document.getElementById("name").value.trim(),
+      isHead: isHeadEl.value,
+      stay: stayEl.value,
+      round,
+      updatedAt: serverTimestamp()
+    });
+    showMsg(msg, "변경이 완료되었습니다.", true);
+  } catch (err) {
+    console.error(err);
+    showMsg(msg, "변경 중 오류가 발생했습니다: " + err.message, false);
+  } finally {
+    saveBtn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
