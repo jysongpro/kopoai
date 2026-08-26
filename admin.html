@@ -92,7 +92,7 @@
 </main>
 
 <script type="module">
-import { db, doc, getDoc, setDoc, collection, getDocs } from "./js/firebase-init.js";
+import { db, doc, getDoc, setDoc, deleteDoc, collection, getDocs } from "./js/firebase-init.js";
 import { getSettings, getRoundCount } from "./js/utils.js";
 
 const loginCard = document.getElementById("loginCard");
@@ -102,16 +102,27 @@ let settings = null;
 
 document.getElementById("loginBtn").addEventListener("click", async () => {
   const pw = document.getElementById("pwInput").value;
-  settings = await getSettings();
+  const btn = document.getElementById("loginBtn");
+  btn.disabled = true;
+  try {
+    settings = await getSettings();
+  } catch (err) {
+    console.error(err);
+    loginMsg.textContent = "Firebase 연결에 실패했습니다. js/firebase-config.js 에 실제 Firebase 프로젝t 설정값이 입력되어 있는지, Firestore Database가 활성화되어 있는지 확인해 주세요. (오류: " + (err && err.message ? err.message : err) + ")";
+    loginMsg.className = "msg show err";
+    btn.disabled = false;
+    return;
+  }
   const correctPw = settings.adminPassword || "000000";
   if (pw === correctPw) {
     loginCard.style.display = "none";
     adminPanel.style.display = "block";
     initAdmin();
   } else {
-    loginMsg.textContent = "비밀번호가 올바르지 않습니다.";
+    loginMsg.textContent = "비밀번호가 올바르지 않습니다. (초기 비밀번호: 000000)";
     loginMsg.className = "msg show err";
   }
+  btn.disabled = false;
 });
 
 async function initAdmin() {
@@ -197,7 +208,7 @@ async function renderList(type) {
   const colName = type === "dept" ? "deptApplications" : "staffApplications";
   const snap = await getDocs(collection(db, colName));
   const rows = [];
-  snap.forEach(d => rows.push(d.data()));
+  snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
   currentListData = rows;
 
   if (rows.length === 0) {
@@ -207,20 +218,38 @@ async function renderList(type) {
 
   let html = "<table><thead><tr>";
   if (type === "dept") {
-    html += "<th>전화번호</th><th>대학</th><th>캠퍼스</th><th>교과편성과정</th><th>직급</th><th>이름</th><th>학과장</th><th>참석차수</th><th>숙박</th>";
+    html += "<th>전화번호</th><th>대학</th><th>캠퍼스</th><th>학과</th><th>교과편성과정</th><th>직급</th><th>이름</th><th>학과장</th><th>참석차수</th><th>숙박</th><th>삭제</th>";
   } else {
-    html += "<th>대학</th><th>캠퍼스</th><th>담당과정</th><th>직급</th><th>이름</th>";
+    html += "<th>대학</th><th>캠퍼스</th><th>담당과정</th><th>직급</th><th>이름</th><th>삭제</th>";
   }
   html += "</tr></thead><tbody>";
   rows.forEach(r => {
     if (type === "dept") {
-      html += `<tr><td>${r.phone||""}</td><td>${r.university||""}</td><td>${r.campus||""}</td><td>${(r.courses||[]).join(", ")}</td><td>${r.position||""}</td><td>${r.name||""}</td><td>${r.isHead==="Y"?"O":"X"}</td><td>${r.round||""}차</td><td>${r.stay==="Y"?"O":"X"}</td></tr>`;
+      html += `<tr><td>${r.phone||""}</td><td>${r.university||""}</td><td>${r.campus||""}</td><td>${r.dept||""}</td><td>${(r.courses||[]).join(", ")}</td><td>${r.position||""}</td><td>${r.name||""}</td><td>${r.isHead==="Y"?"O":"X"}</td><td>${r.round||""}차</td><td>${r.stay==="Y"?"O":"X"}</td><td><button type="button" class="danger delBtn" data-id="${r.id}" data-type="dept" style="padding:4px 10px;font-size:12px;">삭제</button></td></tr>`;
     } else {
-      html += `<tr><td>${r.university||""}</td><td>${r.campus||""}</td><td>${(r.courses||[]).join(", ")}</td><td>${r.position||""}</td><td>${r.name||""}</td></tr>`;
+      html += `<tr><td>${r.university||""}</td><td>${r.campus||""}</td><td>${(r.courses||[]).join(", ")}</td><td>${r.position||""}</td><td>${r.name||""}</td><td><button type="button" class="danger delBtn" data-id="${r.id}" data-type="staff" style="padding:4px 10px;font-size:12px;">삭제</button></td></tr>`;
     }
   });
   html += "</tbody></table>";
   listArea.innerHTML = html;
+
+  listArea.querySelectorAll(".delBtn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.id;
+      const t = btn.dataset.type;
+      if (!confirm("이 신청자를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.")) return;
+      btn.disabled = true;
+      try {
+        const colName = t === "dept" ? "deptApplications" : "staffApplications";
+        await deleteDoc(doc(db, colName, id));
+        await renderList(t);
+      } catch (err) {
+        console.error(err);
+        alert("삭제 중 오류가 발생했습니다: " + err.message);
+        btn.disabled = false;
+      }
+    });
+  });
 }
 
 function downloadExcel() {

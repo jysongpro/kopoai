@@ -44,8 +44,10 @@
         </div>
       </div>
       <div class="field">
-        <label>교과편성 과정 * (복수선택 가능)</label>
-        <div class="checkbox-group" id="courseGroup"></div>
+        <label>학과 *</label>
+        <select id="dept" required disabled>
+          <option value="">캐퍼스를 먼저 선택하세요</option>
+        </select>
       </div>
       <div class="grid2">
         <div class="field">
@@ -56,6 +58,10 @@
           <label>이름 *</label>
           <input type="text" id="name" placeholder="이름을 입력하세요" required>
         </div>
+      </div>
+      <div class="field">
+        <label>교과편성 과정 * (복수선택 가능)</label>
+        <div class="checkbox-group" id="courseGroup"></div>
       </div>
       <div class="grid2">
         <div class="field">
@@ -84,13 +90,77 @@
 </main>
 
 <script src="js/campus-data.js"></script>
+<script>
+// Firebase 연동과 무관하게 항상 동작하는 UI 초기화 (일반 스크립트)
+(function initUI() {
+  const uniSelect = document.getElementById("university");
+  const campSelect = document.getElementById("campus");
+  const courseGroup = document.getElementById("courseGroup");
+
+  const deptSelect = document.getElementById("dept");
+
+  Object.keys(CAMPUS_DATA).forEach(u => {
+    const opt = document.createElement("option");
+    opt.value = u; opt.textContent = u + "대학";
+    uniSelect.appendChild(opt);
+  });
+
+  Object.entries(COURSE_OPTIONS).forEach(([group, items]) => {
+    const title = document.createElement("div");
+    title.className = "group-title";
+    title.textContent = group;
+    courseGroup.appendChild(title);
+    items.forEach(c => {
+      const label = document.createElement("label");
+      label.innerHTML = `<input type="checkbox" name="course" value="${c}"> ${c}`;
+      courseGroup.appendChild(label);
+    });
+  });
+
+  function resetDept() {
+    deptSelect.disabled = true;
+    deptSelect.innerHTML = '<option value="">캐퍼스를 먼저 선택하세요</option>';
+  }
+
+  uniSelect.addEventListener("change", () => {
+    const u = uniSelect.value;
+    campSelect.innerHTML = "";
+    resetDept();
+    if (!u) {
+      campSelect.disabled = true;
+      campSelect.innerHTML = '<option value="">대학을 먼저 선택하세요</option>';
+      return;
+    }
+    campSelect.disabled = false;
+    campSelect.innerHTML = '<option value="">선택하세요</option>';
+    CAMPUS_DATA[u].forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c; opt.textContent = c;
+      campSelect.appendChild(opt);
+    });
+  });
+
+  campSelect.addEventListener("change", () => {
+    const u = uniSelect.value;
+    const c = campSelect.value;
+    if (!u || !c) { resetDept(); return; }
+    const depts = (DEPT_DATA[u] && DEPT_DATA[u][c]) || [];
+    deptSelect.disabled = false;
+    deptSelect.innerHTML = '<option value="">선택하세요</option>';
+    depts.forEach(d => {
+      const opt = document.createElement("option");
+      opt.value = d; opt.textContent = d;
+      deptSelect.appendChild(opt);
+    });
+  });
+})();
+</script>
 <script type="module">
 import { db, doc, setDoc, getDoc, serverTimestamp } from "./js/firebase-init.js";
 import { getSettings, isApplyPeriodOpen, getRounds, getRoundCount, formatPhone } from "./js/utils.js";
 
 const uniSelect = document.getElementById("university");
 const campSelect = document.getElementById("campus");
-const courseGroup = document.getElementById("courseGroup");
 const roundList = document.getElementById("roundList");
 const msg = document.getElementById("msg");
 const periodMsg = document.getElementById("periodMsg");
@@ -103,41 +173,6 @@ function showMsg(el, text, ok) {
   el.textContent = text;
   el.className = "msg show " + (ok ? "ok" : "err");
 }
-
-Object.keys(CAMPUS_DATA).forEach(u => {
-  const opt = document.createElement("option");
-  opt.value = u; opt.textContent = u + "대학";
-  uniSelect.appendChild(opt);
-});
-
-Object.entries(COURSE_OPTIONS).forEach(([group, items]) => {
-  const title = document.createElement("div");
-  title.className = "group-title";
-  title.textContent = group;
-  courseGroup.appendChild(title);
-  items.forEach(c => {
-    const label = document.createElement("label");
-    label.innerHTML = `<input type="checkbox" name="course" value="${c}"> ${c}`;
-    courseGroup.appendChild(label);
-  });
-});
-
-uniSelect.addEventListener("change", () => {
-  const u = uniSelect.value;
-  campSelect.innerHTML = "";
-  if (!u) {
-    campSelect.disabled = true;
-    campSelect.innerHTML = '<option value="">대학을 먼저 선택하세요</option>';
-    return;
-  }
-  campSelect.disabled = false;
-  campSelect.innerHTML = '<option value="">선택하세요</option>';
-  CAMPUS_DATA[u].forEach(c => {
-    const opt = document.createElement("option");
-    opt.value = c; opt.textContent = c;
-    campSelect.appendChild(opt);
-  });
-});
 
 async function init() {
   const settings = await getSettings();
@@ -175,6 +210,9 @@ document.getElementById("deptForm").addEventListener("submit", async (e) => {
   const phone = formatPhone(document.getElementById("phone").value.trim());
   if (!phone) { showMsg(msg, "전화번호를 입력해 주세요.", false); return; }
 
+  const deptVal = document.getElementById("dept").value;
+  if (!deptVal) { showMsg(msg, "학과를 선택해 주세요.", false); return; }
+
   const courses = Array.from(document.querySelectorAll('input[name="course"]:checked')).map(el => el.value);
   if (courses.length === 0) { showMsg(msg, "교과편성 과정을 1개 이상 선택해 주세요.", false); return; }
 
@@ -209,6 +247,7 @@ document.getElementById("deptForm").addEventListener("submit", async (e) => {
       phone,
       university: uniSelect.value,
       campus: campSelect.value,
+      dept: document.getElementById("dept").value,
       courses,
       position: document.getElementById("position").value.trim(),
       name: document.getElementById("name").value.trim(),

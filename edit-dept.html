@@ -86,6 +86,43 @@
 </main>
 
 <script src="js/campus-data.js"></script>
+<script>
+// Firebase 연동과 무관하게 항상 동작하는 UI 초기화 (일반 스크립트)
+function fillCampus(u, selected) {
+  const campSelect = document.getElementById("campus");
+  campSelect.innerHTML = "";
+  (CAMPUS_DATA[u] || []).forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = c; opt.textContent = c;
+    if (c === selected) opt.selected = true;
+    campSelect.appendChild(opt);
+  });
+}
+(function initUI() {
+  const uniSelect = document.getElementById("university");
+  const courseGroup = document.getElementById("courseGroup");
+
+  Object.keys(CAMPUS_DATA).forEach(u => {
+    const opt = document.createElement("option");
+    opt.value = u; opt.textContent = u + "대학";
+    uniSelect.appendChild(opt);
+  });
+
+  Object.entries(COURSE_OPTIONS).forEach(([group, items]) => {
+    const title = document.createElement("div");
+    title.className = "group-title";
+    title.textContent = group;
+    courseGroup.appendChild(title);
+    items.forEach(c => {
+      const label = document.createElement("label");
+      label.innerHTML = `<input type="checkbox" name="course" value="${c}"> ${c}`;
+      courseGroup.appendChild(label);
+    });
+  });
+
+  uniSelect.addEventListener("change", () => fillCampus(uniSelect.value, null));
+})();
+</script>
 <script type="module">
 import { db, doc, getDoc, updateDoc, serverTimestamp } from "./js/firebase-init.js";
 import { getRounds, getRoundCount, formatPhone } from "./js/utils.js";
@@ -95,7 +132,6 @@ const editCard = document.getElementById("editCard");
 const msg = document.getElementById("msg");
 const uniSelect = document.getElementById("university");
 const campSelect = document.getElementById("campus");
-const courseGroup = document.getElementById("courseGroup");
 const roundList = document.getElementById("roundList");
 const currentRoundSpan = document.getElementById("currentRound");
 
@@ -107,35 +143,6 @@ function showMsg(el, text, ok) {
   el.textContent = text;
   el.className = "msg show " + (ok ? "ok" : "err");
 }
-
-Object.keys(CAMPUS_DATA).forEach(u => {
-  const opt = document.createElement("option");
-  opt.value = u; opt.textContent = u + "대학";
-  uniSelect.appendChild(opt);
-});
-
-Object.entries(COURSE_OPTIONS).forEach(([group, items]) => {
-  const title = document.createElement("div");
-  title.className = "group-title";
-  title.textContent = group;
-  courseGroup.appendChild(title);
-  items.forEach(c => {
-    const label = document.createElement("label");
-    label.innerHTML = `<input type="checkbox" name="course" value="${c}"> ${c}`;
-    courseGroup.appendChild(label);
-  });
-});
-
-function fillCampus(u, selected) {
-  campSelect.innerHTML = "";
-  (CAMPUS_DATA[u] || []).forEach(c => {
-    const opt = document.createElement("option");
-    opt.value = c; opt.textContent = c;
-    if (c === selected) opt.selected = true;
-    campSelect.appendChild(opt);
-  });
-}
-uniSelect.addEventListener("change", () => fillCampus(uniSelect.value, null));
 
 document.getElementById("searchBtn").addEventListener("click", async () => {
   const phone = formatPhone(document.getElementById("phone").value.trim());
