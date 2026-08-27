@@ -8,6 +8,7 @@
 </head>
 <body>
 <header class="topbar">
+  <a href="admin.html" class="admin-link">관리자</a>
   <h1>2027학년도 교과과정개편 연수 신청</h1>
   <p>학교법인 한국폴리텍대학 AI혁신부</p>
 </header>
@@ -16,8 +17,16 @@
   <a href="apply-staff.html">신규신청(학사담당)</a>
   <a href="apply-dept.html">신규신청(학과장)</a>
   <a href="edit-dept.html" class="active">변경하기(학과장)</a>
-  <a href="admin.html">관리자</a>
 </nav>
+<div class="card" id="roundStatusCard">
+  <h2>차수별 연수 일정 안내 (학과장 연수)</h2>
+  <div id="roundStatusBody"><p class="small">불러오는 중...</p></div>
+</div>
+<div class="card" id="roundStatusCardStaff">
+  <h2>차수별 연수 일정 안내 (학사담당 연수)</h2>
+  <div id="roundStatusBodyStaff"><p class="small">불러오는 중...</p></div>
+</div>
+
 <main>
   <div class="card">
     <h2>변경하기 (학과장)</h2>
@@ -171,10 +180,10 @@ document.getElementById("searchBtn").addEventListener("click", async () => {
   if (stayEl) stayEl.checked = true;
   currentRoundSpan.textContent = currentData.round ? currentData.round + "차" : "미지정";
 
-  roundsCache = await getRounds();
+  roundsCache = await getRounds("rounds");
   roundList.innerHTML = "";
   for (const r of roundsCache) {
-    const count = await getRoundCount(r.id, currentPhone); // 본인 제외 카운트
+    const count = await getRoundCount("deptApplications", r.id, currentPhone); // 본인 제외 카운트
     const isFull = r.maxCount && count >= r.maxCount;
     const label = document.createElement("label");
     label.className = isFull ? "full" : "";
@@ -205,7 +214,7 @@ document.getElementById("editForm").addEventListener("submit", async (e) => {
   try {
     // 변경한 회차의 정원 초과 여부 재확인 (본인 제외 카운트)
     const roundInfo = roundsCache.find(r => r.id === round);
-    const count = await getRoundCount(round, currentPhone);
+    const count = await getRoundCount("deptApplications", round, currentPhone);
     if (roundInfo && roundInfo.maxCount && count >= roundInfo.maxCount) {
       showMsg(msg, "선택하신 회차는 신청가능인원을 초과하여 변경신청을 완료할 수 없습니다.", false);
       saveBtn.disabled = false;
@@ -231,6 +240,11 @@ document.getElementById("editForm").addEventListener("submit", async (e) => {
     saveBtn.disabled = false;
   }
 });
+</script>
+<script type="module">
+import { renderRoundStatus } from "./js/round-status.js";
+renderRoundStatus("roundStatusBody", "rounds", "deptApplications");
+renderRoundStatus("roundStatusBodyStaff", "staffRounds", "staffApplications");
 </script>
 </body>
 </html>

@@ -6,7 +6,7 @@ export async function getSettings() {
   const snap = await getDoc(doc(db, "settings", "main"));
   if (snap.exists()) return snap.data();
   return {
-    adminPassword: "000000",
+    adminPassword: "0000",
     applyStart: "",
     applyEnd: ""
   };
@@ -21,11 +21,12 @@ export function isApplyPeriodOpen(settings) {
   return now >= start && now <= end;
 }
 
-// 회차 설정(rounds/1 ~ rounds/10) 전체 가져오기
-export async function getRounds() {
+// 회차 설정 전체 가져오기
+// configCol: "rounds"(학과장 연수, 기본값) 또는 "staffRounds"(학사담당 연수)
+export async function getRounds(configCol = "rounds") {
   const rounds = [];
   for (let i = 1; i <= 10; i++) {
-    const snap = await getDoc(doc(db, "rounds", String(i)));
+    const snap = await getDoc(doc(db, configCol, String(i)));
     if (snap.exists()) {
       const d = snap.data();
       if (d.enabled) rounds.push({ id: i, ...d });
@@ -34,13 +35,14 @@ export async function getRounds() {
   return rounds;
 }
 
-// 특정 회차의 현재 신청 인원수 (deptApplications 컬렉션에서 round 필드 카운트)
-export async function getRoundCount(roundId, excludePhone = null) {
-  const q = query(collection(db, "deptApplications"), where("round", "==", roundId));
+// 특정 회차의 현재 신청 인원수
+// appCol: "deptApplications"(기본값) 또는 "staffApplications"
+export async function getRoundCount(appCol = "deptApplications", roundId, excludeId = null) {
+  const q = query(collection(db, appCol), where("round", "==", roundId));
   const snap = await getDocs(q);
   let count = 0;
   snap.forEach(d => {
-    if (!excludePhone || d.id !== excludePhone) count++;
+    if (!excludeId || d.id !== excludeId) count++;
   });
   return count;
 }

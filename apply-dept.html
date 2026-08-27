@@ -8,6 +8,7 @@
 </head>
 <body>
 <header class="topbar">
+  <a href="admin.html" class="admin-link">관리자</a>
   <h1>2027학년도 교과과정개편 연수 신청</h1>
   <p>학교법인 한국폴리텍대학 AI혁신부</p>
 </header>
@@ -16,8 +17,16 @@
   <a href="apply-staff.html">신규신청(학사담당)</a>
   <a href="apply-dept.html" class="active">신규신청(학과장)</a>
   <a href="edit-dept.html">변경하기(학과장)</a>
-  <a href="admin.html">관리자</a>
 </nav>
+<div class="card" id="roundStatusCard">
+  <h2>차수별 연수 일정 안내 (학과장 연수)</h2>
+  <div id="roundStatusBody"><p class="small">불러오는 중...</p></div>
+</div>
+<div class="card" id="roundStatusCardStaff">
+  <h2>차수별 연수 일정 안내 (학사담당 연수)</h2>
+  <div id="roundStatusBodyStaff"><p class="small">불러오는 중...</p></div>
+</div>
+
 <main>
   <div class="card">
     <h2>신규신청 (학과장)</h2>
@@ -183,13 +192,13 @@ async function init() {
     showMsg(periodMsg, `신청기간: ${settings.applyStart} ~ ${settings.applyEnd}`, true);
   }
 
-  roundsCache = await getRounds();
+  roundsCache = await getRounds("rounds");
   if (roundsCache.length === 0) {
     roundList.innerHTML = '<p class="small">관리자가 아직 회차 정보를 등록하지 않았습니다.</p>';
     return;
   }
   for (const r of roundsCache) {
-    const count = await getRoundCount(r.id);
+    const count = await getRoundCount("deptApplications", r.id);
     const isFull = r.maxCount && count >= r.maxCount;
     const label = document.createElement("label");
     label.className = isFull ? "full" : "";
@@ -235,7 +244,7 @@ document.getElementById("deptForm").addEventListener("submit", async (e) => {
 
     // 정원 재확인 (동시신청 방지)
     const roundInfo = roundsCache.find(r => r.id === round);
-    const count = await getRoundCount(round);
+    const count = await getRoundCount("deptApplications", round);
     if (roundInfo && roundInfo.maxCount && count >= roundInfo.maxCount) {
       showMsg(msg, "선택하신 차수는 방금 정원이 마감되었습니다. 다른 차수를 선택해 주세요.", false);
       submitBtn.disabled = false;
@@ -268,6 +277,11 @@ document.getElementById("deptForm").addEventListener("submit", async (e) => {
     submitBtn.disabled = false;
   }
 });
+</script>
+<script type="module">
+import { renderRoundStatus } from "./js/round-status.js";
+renderRoundStatus("roundStatusBody", "rounds", "deptApplications");
+renderRoundStatus("roundStatusBodyStaff", "staffRounds", "staffApplications");
 </script>
 </body>
 </html>
