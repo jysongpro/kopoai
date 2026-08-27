@@ -132,19 +132,25 @@ async function loadRounds() {
     roundList.innerHTML = '<p class="small">관리자가 아직 회차 정보를 등록하지 않았습니다.</p>';
     return;
   }
+  const params = new URLSearchParams(window.location.search);
+  const preselectRound = params.get("round");
   for (const r of roundsCache) {
     const count = await getRoundCount("staffApplications", r.id);
     const isFull = r.maxCount && count >= r.maxCount;
     const label = document.createElement("label");
     label.className = isFull ? "full" : "";
+    const checked = (preselectRound && String(r.id) === preselectRound && !isFull) ? "checked" : "";
     label.innerHTML = `
       <span>
-        <input type="radio" name="round" value="${r.id}" ${isFull ? "disabled" : ""}>
+        <input type="radio" name="round" value="${r.id}" ${isFull ? "disabled" : ""} ${checked}>
         <b>${r.id}차</b> · ${r.location || "장소 미정"} · ${r.period || "기간 미정"}
       </span>
       <span class="tag ${isFull ? "full" : ""}">${count} / ${r.maxCount || "제한없음"}${isFull ? " 마감" : ""}</span>
     `;
     roundList.appendChild(label);
+  }
+  if (preselectRound) {
+    document.getElementById("staffForm").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 }
 loadRounds();
