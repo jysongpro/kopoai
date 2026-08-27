@@ -18,14 +18,6 @@
   <a href="apply-dept.html" class="active">신규신청(학과장)</a>
   <a href="edit-dept.html">변경하기(학과장)</a>
 </nav>
-<div class="card" id="roundStatusCard">
-  <h2>차수별 연수 일정 안내 (학과장 연수)</h2>
-  <div id="roundStatusBody"><p class="small">불러오는 중...</p></div>
-</div>
-<div class="card" id="roundStatusCardStaff">
-  <h2>차수별 연수 일정 안내 (학사담당 연수)</h2>
-  <div id="roundStatusBodyStaff"><p class="small">불러오는 중...</p></div>
-</div>
 
 <main>
   <div class="card">
@@ -186,10 +178,7 @@ function showMsg(el, text, ok) {
 async function init() {
   const settings = await getSettings();
   if (!isApplyPeriodOpen(settings)) {
-    showMsg(periodMsg, `현재는 신청 기간이 아닙니다. (신청기간: ${settings.applyStart || "-"} ~ ${settings.applyEnd || "-"})`, false);
     submitBtn.disabled = true;
-  } else if (settings.applyStart) {
-    showMsg(periodMsg, `신청기간: ${settings.applyStart} ~ ${settings.applyEnd}`, true);
   }
 
   roundsCache = await getRounds("rounds");
@@ -283,11 +272,6 @@ document.getElementById("deptForm").addEventListener("submit", async (e) => {
     submitBtn.disabled = false;
   }
 });
-</script>
-<script type="module">
-import { renderRoundStatus } from "./js/round-status.js";
-renderRoundStatus("roundStatusBody", "rounds", "deptApplications");
-renderRoundStatus("roundStatusBodyStaff", "staffRounds", "staffApplications");
 </script>
 </body>
 </html>
