@@ -26,7 +26,7 @@
   <h2>관리자 로그인</h2>
   <div class="field">
     <label>비밀번호</label>
-    <input type="password" id="pwInput" placeholder="">
+    <input type="password" id="pwInput" placeholder="초기 비밀번호: 0000">
   </div>
   <button id="loginBtn">로그인</button>
   <div id="loginMsg" class="msg"></div>
@@ -327,14 +327,14 @@ async function renderList(type) {
   if (type === "dept") {
     html += "<th>전화번호</th><th>대학</th><th>캠퍼스</th><th>학과</th><th>교과편성과정</th><th>직급</th><th>이름</th><th>학과장</th><th>참석차수</th><th>숙박</th><th>삭제</th>";
   } else {
-    html += "<th>대학</th><th>캠퍼스</th><th>담당과정</th><th>직급</th><th>이름</th><th>삭제</th>";
+    html += "<th>대학</th><th>캠퍼스</th><th>담당과정</th><th>직급</th><th>이름</th><th>참석차수</th><th>삭제</th>";
   }
   html += "</tr></thead><tbody>";
   rows.forEach(r => {
     if (type === "dept") {
       html += `<tr><td>${r.phone||""}</td><td>${r.university||""}</td><td>${r.campus||""}</td><td>${r.dept||""}</td><td>${(r.courses||[]).join(", ")}</td><td>${r.position||""}</td><td>${r.name||""}</td><td>${r.isHead==="Y"?"O":"X"}</td><td>${r.round||""}차</td><td>${r.stay==="Y"?"O":"X"}</td><td><button type="button" class="danger delBtn" data-id="${r.id}" data-type="dept" style="padding:4px 10px;font-size:12px;">삭제</button></td></tr>`;
     } else {
-      html += `<tr><td>${r.university||""}</td><td>${r.campus||""}</td><td>${(r.courses||[]).join(", ")}</td><td>${r.position||""}</td><td>${r.name||""}</td><td><button type="button" class="danger delBtn" data-id="${r.id}" data-type="staff" style="padding:4px 10px;font-size:12px;">삭제</button></td></tr>`;
+      html += `<tr><td>${r.university||""}</td><td>${r.campus||""}</td><td>${(r.courses||[]).join(", ")}</td><td>${r.position||""}</td><td>${r.name||""}</td><td>${r.round?r.round+"차":""}</td><td><button type="button" class="danger delBtn" data-id="${r.id}" data-type="staff" style="padding:4px 10px;font-size:12px;">삭제</button></td></tr>`;
     }
   });
   html += "</tbody></table>";
