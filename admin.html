@@ -99,13 +99,16 @@
       <button data-tab="staff">학사담당 신청자</button>
     </div>
     <div class="field" style="max-width:260px;">
-      <label>차수 필터 (다운로드 대상)</label>
+      <label>차수 필터 (다운로드/삭제 대상)</label>
       <select id="roundFilter">
         <option value="all">전체 차수</option>
       </select>
     </div>
     <div id="listArea"></div>
-    <button id="downloadBtn" style="margin-top:14px;">엑셀 다운로드 (선택 차수)</button>
+    <div style="display:flex; gap:8px; margin-top:14px; flex-wrap:wrap;">
+      <button id="downloadBtn">엑셀 다운로드 (선택 차수)</button>
+      <button id="deleteRoundBtn" class="danger">선택 차수 신청자 일괄삭제</button>
+    </div>
   </div>
 
 </div>
@@ -209,6 +212,7 @@ async function initAdmin() {
   });
   document.getElementById("roundFilter").addEventListener("change", () => renderList(currentListType));
   document.getElementById("downloadBtn").addEventListener("click", downloadExcel);
+  document.getElementById("deleteRoundBtn").addEventListener("click", deleteByRound);
 }
 
 async function renderRoundTable() {
@@ -376,6 +380,37 @@ function downloadExcel() {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, currentListType === "dept" ? "학과장신청자" : "학사담당신청자");
   XLSX.writeFile(wb, `교육신청자명단_${currentListType}_${roundLabel}_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+async function deleteByRound() {
+  const roundFilterVal = document.getElementById("roundFilter").value;
+  const typeLabel = currentListType === "dept" ? "학과장" : "학사담당";
+  if (roundFilterVal === "all") {
+    alert("먼저 삭제할 차수를 선택해 주세요. ('전체 차수' 상태에서는 일괄삭제할 수 없습니다.)");
+    return;
+  }
+  if (currentListData.length === 0) {
+    alert("선택하신 차수에 해당하는 신청자가 없습니다.");
+    return;
+  }
+  const roundLabel = `${roundFilterVal}차`;
+  if (!confirm(`${typeLabel} ${roundLabel} 신청자 ${currentListData.length}명을 모두 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+
+  const btn = document.getElementById("deleteRoundBtn");
+  btn.disabled = true;
+  try {
+    const colName = currentListType === "dept" ? "deptApplications" : "staffApplications";
+    for (const row of currentListData) {
+      await deleteDoc(doc(db, colName, row.id));
+    }
+    alert(`${typeLabel} ${roundLabel} 신청자 ${currentListData.length}명이 삭제되었습니다.`);
+    await renderList(currentListType);
+  } catch (err) {
+    console.error(err);
+    alert("일괄삭제 중 오류가 발생했습니다: " + err.message);
+  } finally {
+    btn.disabled = false;
+  }
 }
 </script>
 </body>
