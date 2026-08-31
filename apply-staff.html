@@ -102,7 +102,7 @@
 </script>
 <script type="module">
 import { db, collection, addDoc, serverTimestamp } from "./js/firebase-init.js";
-import { getRounds, getRoundCount } from "./js/utils.js";
+import { getSettings, isApplyPeriodOpen, getRounds, getRoundCount } from "./js/utils.js";
 
 const uniSelect = document.getElementById("university");
 const campSelect = document.getElementById("campus");
@@ -111,11 +111,24 @@ const msg = document.getElementById("msg");
 const submitBtn = document.getElementById("submitBtn");
 
 let roundsCache = [];
+let periodOpen = true;
 
 function showMsg(text, ok) {
   msg.textContent = text;
   msg.className = "msg show " + (ok ? "ok" : "err");
 }
+
+async function checkPeriod() {
+  try {
+    const settings = await getSettings();
+    periodOpen = isApplyPeriodOpen(settings);
+  } catch (err) {
+    console.error(err);
+    periodOpen = true;
+  }
+  if (!periodOpen) submitBtn.disabled = true;
+}
+checkPeriod();
 
 async function loadRounds() {
   roundsCache = await getRounds("staffRounds");
@@ -149,6 +162,10 @@ loadRounds();
 
 document.getElementById("staffForm").addEventListener("submit", async (e) => {
   e.preventDefault();
+  if (!periodOpen) {
+    showMsg("현재는 신청 기간이 아닙니다.", false);
+    return;
+  }
   const courses = Array.from(document.querySelectorAll('input[name="course"]:checked')).map(el => el.value);
   if (courses.length === 0) {
     showMsg("담당과정을 1개 이상 선택해 주세요.", false);
