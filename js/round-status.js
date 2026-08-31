@@ -1,4 +1,4 @@
-// 차수별 연수 일정/장소/신청인원 현황 + 신청하기 버튼 연결
+// 차수별 교육 일정/장소/신청인원 현황 + 신청하기 버튼 연결
 import { getRounds, getRoundCount } from "./utils.js";
 
 // applyUrl: 신청하기 버튼을 눌렀을 때 이동할 페이지 (예: "apply-dept.html")
@@ -9,10 +9,10 @@ export async function renderRoundStatus(targetId, configCol = "rounds", appCol =
   try {
     const rounds = await getRounds(configCol);
     if (!rounds || rounds.length === 0) {
-      el.innerHTML = '<p class="small">아직 관리자가 등록한 연수 회차가 없습니다.</p>';
+      el.innerHTML = '<p class="small">아직 관리자가 등록한 교육 회차가 없습니다.</p>';
       return;
     }
-    let html = '<table><thead><tr><th>차수</th><th>연수일정</th><th>연수장소</th><th>신청가능인원 / 총원</th>' + (applyUrl ? '<th>신청</th>' : '') + '</tr></thead><tbody>';
+    let html = '<table><thead><tr><th>차수</th><th>교육일정</th><th>교육장소</th><th>신청가능인원 / 총원</th>' + (applyUrl ? '<th>신청</th>' : '') + '</tr></thead><tbody>';
     for (const r of rounds) {
       const count = await getRoundCount(appCol, r.id);
       const max = r.maxCount || 0;

@@ -22,7 +22,7 @@ export function isApplyPeriodOpen(settings) {
 }
 
 // 회차 설정 전체 가져오기
-// configCol: "rounds"(학과장 연수, 기본값) 또는 "staffRounds"(학사담당 연수)
+// configCol: "rounds"(학과장 교육, 기본값) 또는 "staffRounds"(학사담당 교육)
 export async function getRounds(configCol = "rounds") {
   const rounds = [];
   for (let i = 1; i <= 10; i++) {

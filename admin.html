@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>관리자 - 2027학년도 교과과정개편 연수</title>
+<title>관리자 - 2027학년도 교과과정개편 교육</title>
 <link rel="stylesheet" href="css/style.css">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 <header class="topbar">
   <a href="admin.html" class="admin-link">관리자</a>
-  <h1>2027학년도 교과과정개편 연수 신청</h1>
+  <h1>2027학년도 교과과정개편 교육 신청</h1>
   <p>학교법인 한국폴리텍대학 AI혁신부</p>
 </header>
 <nav class="menu">
@@ -51,11 +51,11 @@
   </div>
 
   <div class="card">
-    <h2>회차별 설정 - 학과장 연수 (1~10차)</h2>
+    <h2>회차별 설정 - 학과장 교육 (1~10차)</h2>
     <p class="small">사용할 회차만 '사용' 체크 후 장소/기간/최대인원을 입력하세요.</p>
     <table id="roundTable">
       <thead>
-        <tr><th>사용</th><th>차수</th><th>연수장소</th><th>기간</th><th>최대인원</th><th>현재신청</th></tr>
+        <tr><th>사용</th><th>차수</th><th>교육장소</th><th>기간</th><th>최대인원</th><th>현재신청</th></tr>
       </thead>
       <tbody></tbody>
     </table>
@@ -64,11 +64,11 @@
   </div>
 
   <div class="card">
-    <h2>회차별 설정 - 학사담당 연수 (1~10차)</h2>
+    <h2>회차별 설정 - 학사담당 교육 (1~10차)</h2>
     <p class="small">사용할 회차만 '사용' 체크 후 장소/기간/최대인원을 입력하세요.</p>
     <table id="staffRoundTable">
       <thead>
-        <tr><th>사용</th><th>차수</th><th>연수장소</th><th>기간</th><th>최대인원</th><th>현재신청</th></tr>
+        <tr><th>사용</th><th>차수</th><th>교육장소</th><th>기간</th><th>최대인원</th><th>현재신청</th></tr>
       </thead>
       <tbody></tbody>
     </table>
@@ -98,8 +98,14 @@
       <button class="active" data-tab="dept">학과장 신청자</button>
       <button data-tab="staff">학사담당 신청자</button>
     </div>
+    <div class="field" style="max-width:260px;">
+      <label>차수 필터 (다운로드 대상)</label>
+      <select id="roundFilter">
+        <option value="all">전체 차수</option>
+      </select>
+    </div>
     <div id="listArea"></div>
-    <button id="downloadBtn" style="margin-top:14px;">엑셀 다운로드</button>
+    <button id="downloadBtn" style="margin-top:14px;">엑셀 다운로드 (선택 차수)</button>
   </div>
 
 </div>
@@ -201,6 +207,7 @@ async function initAdmin() {
       renderList(btn.dataset.tab);
     });
   });
+  document.getElementById("roundFilter").addEventListener("change", () => renderList(currentListType));
   document.getElementById("downloadBtn").addEventListener("click", downloadExcel);
 }
 
@@ -275,14 +282,36 @@ async function saveStaffRounds() {
 let currentListData = [];
 let currentListType = "dept";
 
+async function fillRoundFilter(type) {
+  const sel = document.getElementById("roundFilter");
+  const prev = sel.value;
+  const configCol = type === "dept" ? "rounds" : "staffRounds";
+  sel.innerHTML = '<option value="all">전체 차수</option>';
+  for (let i = 1; i <= 10; i++) {
+    const snap = await getDoc(doc(db, configCol, String(i)));
+    if (snap.exists() && snap.data().enabled) {
+      const opt = document.createElement("option");
+      opt.value = String(i);
+      opt.textContent = `${i}차`;
+      sel.appendChild(opt);
+    }
+  }
+  if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+}
+
 async function renderList(type) {
   currentListType = type;
+  await fillRoundFilter(type);
+  const roundFilterVal = document.getElementById("roundFilter").value;
   const listArea = document.getElementById("listArea");
   listArea.innerHTML = "불러오는 중...";
   const colName = type === "dept" ? "deptApplications" : "staffApplications";
   const snap = await getDocs(collection(db, colName));
-  const rows = [];
+  let rows = [];
   snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+  if (roundFilterVal !== "all") {
+    rows = rows.filter(r => String(r.round) === roundFilterVal);
+  }
   currentListData = rows;
 
   if (rows.length === 0) {
@@ -328,6 +357,8 @@ async function renderList(type) {
 
 function downloadExcel() {
   if (currentListData.length === 0) { alert("다운로드할 데이터가 없습니다."); return; }
+  const roundFilterVal = document.getElementById("roundFilter").value;
+  const roundLabel = roundFilterVal === "all" ? "전체차수" : `${roundFilterVal}차`;
   let rows;
   if (currentListType === "dept") {
     rows = currentListData.map(r => ({
@@ -344,7 +375,7 @@ function downloadExcel() {
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, currentListType === "dept" ? "학과장신청자" : "학사담당신청자");
-  XLSX.writeFile(wb, `연수신청자명단_${currentListType}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  XLSX.writeFile(wb, `교육신청자명단_${currentListType}_${roundLabel}_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 </script>
 </body>

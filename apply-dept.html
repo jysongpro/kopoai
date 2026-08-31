@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>신규신청(학과장) - 2027학년도 교과과정개편 연수</title>
+<title>신규신청(학과장) - 2027학년도 교과과정개편 교육</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <header class="topbar">
   <a href="admin.html" class="admin-link">관리자</a>
-  <h1>2027학년도 교과과정개편 연수 신청</h1>
+  <h1>2027학년도 교과과정개편 교육 신청</h1>
   <p>학교법인 한국폴리텍대학 AI혁신부</p>
 </header>
 <nav class="menu">
@@ -59,8 +59,7 @@
           <label>이름 / 학과장 여부 *</label>
           <div style="display:flex; gap:8px; align-items:center;">
             <input type="text" id="name" placeholder="이름을 입력하세요" required style="flex:1;">
-            <label style="display:flex;align-items:center;gap:4px;white-space:nowrap;font-weight:500;font-size:13px;background:var(--blue-light);padding:8px 12px;border-radius:8px;"><input type="radio" name="isHead" value="Y" required> 학과장임</label>
-            <label style="display:flex;align-items:center;gap:4px;white-space:nowrap;font-weight:500;font-size:13px;background:var(--blue-light);padding:8px 12px;border-radius:8px;"><input type="radio" name="isHead" value="N"> 학과장 아님</label>
+            <label style="display:flex;align-items:center;gap:4px;white-space:nowrap;font-weight:500;font-size:13px;background:var(--blue-light);padding:8px 12px;border-radius:8px;"><input type="checkbox" id="isHead" value="Y"> 학과장</label>
           </div>
         </div>
       </div>
@@ -215,10 +214,10 @@ document.getElementById("deptForm").addEventListener("submit", async (e) => {
   const courses = Array.from(document.querySelectorAll('input[name="course"]:checked')).map(el => el.value);
   if (courses.length === 0) { showMsg(msg, "교과편성 과정을 1개 이상 선택해 주세요.", false); return; }
 
-  const isHeadEl = document.querySelector('input[name="isHead"]:checked');
+  const isHeadEl = document.getElementById("isHead");
   const stayEl = document.querySelector('input[name="stay"]:checked');
   const roundEl = document.querySelector('input[name="round"]:checked');
-  if (!isHeadEl || !stayEl) { showMsg(msg, "학과장 여부와 숙박 여부를 선택해 주세요.", false); return; }
+  if (!stayEl) { showMsg(msg, "숙박 여부를 선택해 주세요.", false); return; }
   if (!roundEl) { showMsg(msg, "참석 차수를 선택해 주세요.", false); return; }
   const round = parseInt(roundEl.value, 10);
 
@@ -250,7 +249,7 @@ document.getElementById("deptForm").addEventListener("submit", async (e) => {
       courses,
       position: document.getElementById("position").value.trim(),
       name: document.getElementById("name").value.trim(),
-      isHead: isHeadEl.value,
+      isHead: isHeadEl.checked ? "Y" : "N",
       stay: stayEl.value,
       round,
       createdAt: serverTimestamp(),
